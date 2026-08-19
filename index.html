@@ -352,6 +352,17 @@
       margin-right: 4px;
     }
     .btn-ver-detalhes:hover { background: var(--azul-escuro); }
+    .btn-ver-mensagem {
+      background: #8e44ad;
+      color: #fff;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      margin-right: 4px;
+    }
+    .btn-ver-mensagem:hover { background: #6c3483; }
     .card {
       background: var(--branco);
       border-radius: var(--border-radius);
@@ -530,6 +541,15 @@
       border-top: 1px solid var(--cinza-borda);
       padding-top: 20px;
     }
+    .mensagem-texto {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      border-left: 4px solid var(--azul-medio);
+      margin-top: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
     footer {
       margin-top: auto;
       background: #0A1E2F;
@@ -687,17 +707,34 @@
   </div>
 </section>
 
-<!-- ===== MODAL DE DETALHES ===== -->
+<!-- ===== MODAL DE DETALHES DO FUNCIONÁRIO ===== -->
 <div id="modalFuncionario" class="modal-overlay">
   <div class="modal-content">
-    <button class="modal-close" onclick="fecharModal()">&times;</button>
+    <button class="modal-close" onclick="fecharModal('modalFuncionario')">&times;</button>
     <h2 id="modalNome">Nome do Funcionário</h2>
     <p class="modal-subtitle" id="modalEmail">email@exemplo.com</p>
     <div class="modal-detalhes" id="modalDetalhes">
       <!-- Preenchido via JavaScript -->
     </div>
     <div class="modal-actions">
-      <button onclick="fecharModal()" class="btn-primario" style="background:var(--azul-medio);">Fechar</button>
+      <button onclick="fecharModal('modalFuncionario')" class="btn-primario" style="background:var(--azul-medio);">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL DE MENSAGEM ===== -->
+<div id="modalMensagem" class="modal-overlay">
+  <div class="modal-content">
+    <button class="modal-close" onclick="fecharModal('modalMensagem')">&times;</button>
+    <h2 id="modalMsgNome">Mensagem de</h2>
+    <p class="modal-subtitle" id="modalMsgInfo">email@exemplo.com | (11) 99999-9999</p>
+    <div id="modalMsgConteudo">
+      <div class="mensagem-texto" id="modalMsgTexto">
+        Conteúdo da mensagem...
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="fecharModal('modalMensagem')" class="btn-primario" style="background:var(--azul-medio);">Fechar</button>
     </div>
   </div>
 </div>
@@ -712,6 +749,7 @@
 <script>
 const API_URL = 'https://backend-cuidado-humanizado-api.onrender.com';
 let funcionariosCache = [];
+let mensagensCache = [];
 
 // ===== MENU MOBILE =====
 const hamburger = document.querySelector('.hamburger');
@@ -801,10 +839,10 @@ async function carregarDados() {
   try {
     const msgRes = await fetch(`${API_URL}/api/mensagens`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (msgRes.ok) {
-      const mensagens = await msgRes.json();
-      renderMensagens(mensagens);
-      document.getElementById('totalMensagens').textContent = mensagens.length;
-      document.getElementById('totalNaoLidas').textContent = mensagens.filter(m => !m.lida).length;
+      mensagensCache = await msgRes.json();
+      renderMensagens(mensagensCache);
+      document.getElementById('totalMensagens').textContent = mensagensCache.length;
+      document.getElementById('totalNaoLidas').textContent = mensagensCache.filter(m => !m.lida).length;
     }
     const funcRes = await fetch(`${API_URL}/api/funcionarios`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (funcRes.ok) {
@@ -831,9 +869,12 @@ function renderMensagens(mensagens) {
       <td>${m.nome}</td>
       <td>${m.telefone}</td>
       <td>${m.email}</td>
-      <td>${m.cidade}</td>
+      <td>${m.cidade || 'Não informada'}</td>
       <td><span class="badge-status ${m.lida ? 'badge-lida' : 'badge-nao-lida'}">${m.lida ? '✅ Lida' : '📩 Não lida'}</span></td>
-      <td><button onclick="marcarLida('${m._id}')" class="btn-marcar-lida">Marcar lida</button></td>
+      <td>
+        <button onclick="verMensagem('${m._id}')" class="btn-ver-mensagem"><i class="fas fa-envelope"></i> Ver</button>
+        <button onclick="marcarLida('${m._id}')" class="btn-marcar-lida">Marcar lida</button>
+      </td>
     </tr>
   `).join('');
 }
@@ -877,7 +918,23 @@ function renderFuncionarios(funcionarios) {
   `}).join('');
 }
 
-// ===== MODAL DE DETALHES =====
+// ===== VER MENSAGEM =====
+function verMensagem(id) {
+  const mensagem = mensagensCache.find(m => m._id === id);
+  if (!mensagem) {
+    alert('Mensagem não encontrada!');
+    return;
+  }
+
+  document.getElementById('modalMsgNome').textContent = `📩 Mensagem de ${mensagem.nome}`;
+  document.getElementById('modalMsgInfo').textContent = `${mensagem.email} | ${mensagem.telefone}`;
+  document.getElementById('modalMsgTexto').textContent = mensagem.mensagem || 'Mensagem sem conteúdo.';
+
+  document.getElementById('modalMensagem').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+// ===== MODAL DE DETALHES DO FUNCIONÁRIO =====
 function verDetalhes(id) {
   const funcionario = funcionariosCache.find(f => f._id === id);
   if (!funcionario) {
@@ -917,19 +974,29 @@ function verDetalhes(id) {
   document.body.style.overflow = 'hidden';
 }
 
-function fecharModal() {
-  document.getElementById('modalFuncionario').classList.remove('active');
+function fecharModal(id) {
+  document.getElementById(id).classList.remove('active');
   document.body.style.overflow = '';
 }
 
-// Fechar modal clicando fora
-document.getElementById('modalFuncionario').addEventListener('click', function(e) {
-  if (e.target === this) fecharModal();
+// Fechar modais clicando fora
+document.querySelectorAll('.modal-overlay').forEach(modal => {
+  modal.addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
 });
 
 // Fechar com ESC
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') fecharModal();
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+      modal.classList.remove('active');
+    });
+    document.body.style.overflow = '';
+  }
 });
 
 // ===== AÇÕES =====
